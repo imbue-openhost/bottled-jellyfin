@@ -141,10 +141,35 @@ def _server_id() -> str:
     return json.loads(body)["Id"]
 
 
+def _post_with_retry(path: str, body: dict | None, retries: int = 30, delay: float = 2.0) -> tuple[int, bytes]:
+    """POST with retry on 5xx.  Jellyfin reports
+    /System/Info/Public ready before the controller layer for
+    /Startup/* is wired up — early POSTs return 503 with the
+    startup-wizard HTML page instead of routing to the
+    StartupController.  Retry a few times to give the .NET host a
+    chance to finish bringing controllers online.
+    """
+    last_status = 0
+    last_body = b""
+    for _ in range(retries):
+        status, _, resp_body = _request("POST", path, body=body)
+        if status in (200, 204):
+            return status, resp_body
+        last_status = status
+        last_body = resp_body
+        # 503 with HTML body = wizard page, controller not ready;
+        # retry.  4xx = real error, give up immediately.
+        if status < 500:
+            break
+        time.sleep(delay)
+    raise RuntimeError(
+        f"{path} returned {last_status} after retries: {last_body[:200]!r}"
+    )
+
+
 def _drive_wizard(password: str) -> None:
-    print("[bootstrap] Step 1/4: POST /Startup/Configuration")
-    status, _, body = _request(
-        "POST",
+    print("[bootstrap] Step 1/5: POST /Startup/Configuration")
+    _post_with_retry(
         "/Startup/Configuration",
         body={
             "UICulture": "en-US",
@@ -152,43 +177,40 @@ def _drive_wizard(password: str) -> None:
             "PreferredMetadataLanguage": "en",
         },
     )
-    if status not in (200, 204):
-        raise RuntimeError(
-            f"/Startup/Configuration returned {status}: {body[:200]!r}"
-        )
 
-    print("[bootstrap] Step 2/4: POST /Startup/RemoteAccess")
+    print("[bootstrap] Step 2/5: POST /Startup/RemoteAccess")
     # Jellyfin's RemoteAccess endpoint also takes EnableAutomaticPortMapping
     # which we want OFF — we don't run UPnP and OpenHost handles inbound
     # routing.
-    status, _, body = _request(
-        "POST",
+    _post_with_retry(
         "/Startup/RemoteAccess",
         body={
             "EnableRemoteAccess": True,
             "EnableAutomaticPortMapping": False,
         },
     )
-    if status not in (200, 204):
+
+    # GET /Startup/User triggers UserManager.InitializeAsync()
+    # which creates the default admin user.  Without this prior
+    # GET, POST /Startup/User dies with
+    # System.InvalidOperationException: Sequence contains no
+    # elements (it does Users.First()) on a fresh database.
+    # See Jellyfin.Api.Controllers.StartupController.GetFirstUser.
+    print("[bootstrap] Step 3/5: GET /Startup/User (initialise default admin)")
+    status, _, body = _request("GET", "/Startup/User")
+    if status != 200:
         raise RuntimeError(
-            f"/Startup/RemoteAccess returned {status}: {body[:200]!r}"
+            f"/Startup/User GET returned {status}: {body[:200]!r}"
         )
 
-    print(f"[bootstrap] Step 3/4: POST /Startup/User (username={ADMIN_USERNAME!r})")
-    status, _, body = _request(
-        "POST",
+    print(f"[bootstrap] Step 4/5: POST /Startup/User (rename to {ADMIN_USERNAME!r})")
+    _post_with_retry(
         "/Startup/User",
         body={"Name": ADMIN_USERNAME, "Password": password},
     )
-    if status not in (200, 204):
-        raise RuntimeError(f"/Startup/User returned {status}: {body[:200]!r}")
 
-    print("[bootstrap] Step 4/4: POST /Startup/Complete")
-    status, _, body = _request("POST", "/Startup/Complete")
-    if status not in (200, 204):
-        raise RuntimeError(
-            f"/Startup/Complete returned {status}: {body[:200]!r}"
-        )
+    print("[bootstrap] Step 5/5: POST /Startup/Complete")
+    _post_with_retry("/Startup/Complete", body=None)
 
 
 def _authenticate(username: str, password: str) -> tuple[str, str]:
