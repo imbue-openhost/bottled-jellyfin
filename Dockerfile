@@ -37,10 +37,17 @@ RUN apt-get update -qq \
         ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
-# Application files.
+# Application files.  COPY in rootless podman doesn't always
+# preserve the executable bit from the source filesystem (the
+# git checkout's mode bits get squashed under user-namespace
+# remapping); force 0755 explicitly so tini can exec start.sh
+# on container boot.
 COPY start.sh             /opt/openhost-jellyfin/start.sh
 COPY auth_proxy.py        /opt/openhost-jellyfin/auth_proxy.py
 COPY bootstrap_admin.py   /opt/openhost-jellyfin/bootstrap_admin.py
+RUN chmod 0755 /opt/openhost-jellyfin/start.sh \
+              /opt/openhost-jellyfin/auth_proxy.py \
+              /opt/openhost-jellyfin/bootstrap_admin.py
 
 # OpenHost-routed port (auth-proxy).  Jellyfin's own port (8096)
 # remains loopback-only.
