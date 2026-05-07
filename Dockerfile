@@ -17,7 +17,7 @@
 #   * gosu           — drop privileges to the jellyfin user (uid 1000)
 #   * curl           — readiness probes (some are easier than urllib)
 
-FROM jellyfin/jellyfin:latest
+FROM docker.io/jellyfin/jellyfin:latest
 
 USER root
 
