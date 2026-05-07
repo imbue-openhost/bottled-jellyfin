@@ -78,14 +78,18 @@ echo "[start.sh] Jellyfin config: CONFIG_DIR=$JELLYFIN_CONFIG_DIR DATA_DIR=$JELL
 # reachable port is the auth-proxy on :8080.
 
 echo "[start.sh] Starting Jellyfin on 127.0.0.1:8096"
+# Jellyfin's flags: --configdir, --datadir, --cachedir, --logdir,
+# --webdir, --service.  Note `--service` is a boolean flag (no
+# value) and it disables interactive ttys; we want it because
+# we're running under tini.  We do NOT pass --nowebclient — the
+# default is to host the web client at /web/.
 /jellyfin/jellyfin \
     --configdir "$CONFIG_DIR" \
     --datadir "$DATA_DIR" \
     --cachedir "$CACHE_DIR" \
     --logdir "$LOG_DIR" \
     --webdir "$JELLYFIN_WEB_DIR" \
-    --service \
-    --no-webclient false &
+    --service &
 JELLYFIN_PID=$!
 
 # -----------------------------------------------------------------
