@@ -38,6 +38,7 @@ health_check = "/_healthz"
 #   * /api-docs/, /openapi*      — Jellyfin's public OpenAPI surface.
 #   * /socket                    — Jellyfin's WebSocket endpoint.
 public_paths = [
+    "/_healthz",
     "/System/",
     "/Users/AuthenticateByName",
     "/Users/Public",
