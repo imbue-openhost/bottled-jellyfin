@@ -59,16 +59,26 @@ that cached the old cookie.
 
 ## Persistent state
 
-Everything lives under `$OPENHOST_APP_DATA_DIR/`:
+Working state lives under `$OPENHOST_APP_DATA_DIR/` (local NVMe, backed
+up — fast and POSIX-strict, so it's safe for Jellyfin's SQLite DBs):
 
   * `config/` — Jellyfin config XMLs.
-  * `data/` — Jellyfin's DBs (jellyfin.db, library.db).
+  * `data/` — Jellyfin's DBs (jellyfin.db, library.db).  These are
+    SQLite and **must** stay on `app_data`; the archive tier's FS can
+    corrupt a SQLite WAL.
   * `cache/` — transcode + thumbnail cache.
   * `log/` — Jellyfin logs.
-  * `media/` — empty media library mount point.  Drop files / mounts
-    here.
   * `admin-token.json` — bootstrap-generated server id, user id, access
     token (mode 0600).
+
+Bulk media lives on the **archive tier** under
+`$OPENHOST_APP_ARCHIVE_DIR/` (`app_archive = true` in the manifest):
+
+  * `media/` — media library mount point.  Drop video/audio files /
+    mounts here.  Backed by JuiceFS — local disk by default, and
+    transparently offloaded to **S3** once the operator upgrades the
+    zone to S3 storage from the OpenHost dashboard.  This keeps large
+    video files off the host's local disk.
 
 ## Caveats
 

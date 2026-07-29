@@ -36,6 +36,11 @@ set -euo pipefail
 
 PERSIST="${OPENHOST_APP_DATA_DIR:-/data/app_data/jellyfin}"
 TEMP="${OPENHOST_APP_TEMP_DIR:-/tmp}"
+# Bulk media lives on the archive tier (JuiceFS; local disk by
+# default, S3 once the operator upgrades the zone) so large video
+# files don't fill the host's local NVMe.  Fall back to app_data
+# if the archive dir isn't granted (e.g. older manifest / dev).
+ARCHIVE="${OPENHOST_APP_ARCHIVE_DIR:-$PERSIST}"
 ZONE_DOMAIN="${OPENHOST_ZONE_DOMAIN:-localhost}"
 APP_NAME="${OPENHOST_APP_NAME:-jellyfin}"
 APP_HOST="${APP_NAME}.${ZONE_DOMAIN}"
@@ -44,7 +49,9 @@ CONFIG_DIR="$PERSIST/config"
 DATA_DIR="$PERSIST/data"
 CACHE_DIR="$PERSIST/cache"
 LOG_DIR="$PERSIST/log"
-MEDIA_DIR="$PERSIST/media"
+# Video/audio files go on the archive tier; everything above
+# (config + SQLite DBs + cache + logs) stays on fast local disk.
+MEDIA_DIR="$ARCHIVE/media"
 TOKEN_FILE="$PERSIST/admin-token.json"
 
 mkdir -p "$CONFIG_DIR" "$DATA_DIR" "$CACHE_DIR" "$LOG_DIR" "$MEDIA_DIR"
@@ -67,7 +74,7 @@ export JELLYFIN_LOG_DIR="$LOG_DIR"
 # Jellyfin's web UI is bundled into the image at /jellyfin/jellyfin-web.
 export JELLYFIN_WEB_DIR="/jellyfin/jellyfin-web"
 
-echo "[start.sh] Jellyfin config: CONFIG_DIR=$JELLYFIN_CONFIG_DIR DATA_DIR=$JELLYFIN_DATA_DIR"
+echo "[start.sh] Jellyfin config: CONFIG_DIR=$JELLYFIN_CONFIG_DIR DATA_DIR=$JELLYFIN_DATA_DIR MEDIA_DIR=$MEDIA_DIR (archive tier)"
 
 # -----------------------------------------------------------------
 # Launch Jellyfin
