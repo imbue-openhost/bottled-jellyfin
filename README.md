@@ -1,9 +1,9 @@
-# openhost-jellyfin
+# bottled-jellyfin
 
-Jellyfin (open-source media server) packaged for OpenHost with one-click
+Jellyfin (open-source media server) packaged for Cloud in a Bottle with one-click
 owner SSO.
 
-When the OpenHost zone owner visits `jellyfin.<zone>` for the first time
+When the Cloud in a Bottle zone owner visits `jellyfin.<zone>` for the first time
 in a browser, an HTML shim seeds Jellyfin's `localStorage.jellyfin_credentials`
 entry with a server-minted access token, then redirects to `/web/`.  The SPA
 loads with the owner already signed in.
@@ -77,17 +77,17 @@ Bulk media lives on the **archive tier** under
   * `media/` — media library mount point.  Drop video/audio files /
     mounts here.  Backed by JuiceFS — local disk by default, and
     transparently offloaded to **S3** once the operator upgrades the
-    zone to S3 storage from the OpenHost dashboard.  This keeps large
+    zone to S3 storage from the Cloud in a Bottle dashboard.  This keeps large
     video files off the host's local disk.
 
 ## Caveats
 
   * **First-boot is slow.**  Jellyfin's initial DB schema migrations and
     plugin scan can take 60+s on a cold container; `/_healthz` returns
-    200 from the auth-proxy immediately so OpenHost won't flag the app
+    200 from the auth-proxy immediately so Cloud in a Bottle won't flag the app
     as failed during this window.
   * **No transcoding GPU.**  Jellyfin will use software ffmpeg only.
-    Hardware acceleration would require GPU passthrough in the OpenHost
+    Hardware acceleration would require GPU passthrough in the Cloud in a Bottle
     runtime config which we don't request.
   * **Mobile/desktop clients log in normally.**  Since the shim only fires
     on browser navigations to `/`, mobile / desktop Jellyfin clients (which
